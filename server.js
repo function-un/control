@@ -1,52 +1,104 @@
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
+const { Server } = require('socket.io');
+const screenshot = require('screenshot-desktop');
+const robot = require('robotjs');
 const path = require('path');
-// Import the native OS input simulator framework
-const robot = require('robotjs'); 
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = new Server(server, {
+    pingTimeout: 10000,
+    pingInterval: 5000
+});
 
-app.use(express.static(path.join(__dirname, 'public')));
+let isProcessingFrame = false;
+let captureIntervalId = null;
 
-wss.on('connection', (ws) => {
-    console.log('Endpoint authenticated to ConnectWise core relay.');
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-    ws.on('message', (message) => {
-        // Handle incoming data streams
-        const dataString = message.toString();
+// CROSS-PLATFORM SCREENSHOT ENGINE
+async function takeScreenFrame() {
+    try {
+        // Leverages standard screenshot-desktop binary hooks across Linux/Windows automatically
+        const imgBuffer = await screenshot({ format: 'jpeg' });
+        return imgBuffer.toString('base64');
+    } catch (err) {
+        throw new Error(`Frame reading failed: ${err.message}`);
+    }
+}
 
-        if (dataString.startsWith('{')) {
-            try {
-                const event = JSON.parse(dataString);
-                
-                // SYSTEM ADVENT TARGET: Intercept click events from the remote technician
-                if (event.type === 'click') {
-                    console.log(`SYSADMIN EVENT: Simulating remote click at X: ${event.x}, Y: ${event.y}`);
-                    
-                    // Move the operating system mouse pointer and perform a clean hardware click
-                    robot.moveMouse(event.x, event.y);
-                    robot.mouseClick();
-                }
-            } catch (e) {
-                // Drop malformed json packet frames quietly
+function startScreenStreaming() {
+    if (captureIntervalId) return;
+
+    console.log("🚀 Starting continuous desktop frame loop...");
+    captureIntervalId = setInterval(async () => {
+        if (isProcessingFrame) return;
+        isProcessingFrame = true;
+
+        try {
+            const base64Data = await takeScreenFrame();
+            io.emit('screen-data', base64Data);
+        } catch (err) {
+            console.error("❌ System screen grab drop:", err.message);
+        } finally {
+            isProcessingFrame = false;
+        }
+    }, 200); // 200ms standard refresh throttle
+}
+
+function stopScreenStreaming() {
+    if (captureIntervalId) {
+        clearInterval(captureIntervalId);
+        captureIntervalId = null;
+        console.log("🛑 Admin connection dropped. Suspending feed.");
+    }
+}
+
+io.on('connection', (socket) => {
+    console.log(`👤 Connection mapped. Active sessions: ${io.engine.clientsCount}`);
+    startScreenStreaming();
+
+    socket.on('remote-click', (data) => {
+        try {
+            if (data && typeof data.x === 'number' && typeof data.y === 'number') {
+                robot.moveMouse(data.x, data.y);
+                robot.mouseClick();
             }
-        } else {
-            // Broadcast standard live screen video snapshots across the socket pipeline
-            wss.clients.forEach((client) => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(message);
+        } catch (err) {
+            console.error("❌ Mouse execution failure:", err.message);
+        }
+    });
+
+    socket.on('remote-type', (data) => {
+        try {
+            if (data && data.key) {
+                if (data.modifier) {
+                    robot.keyToggle(data.modifier, 'down');
+                    robot.keyTap(data.key);
+                    robot.keyToggle(data.modifier, 'up');
+                } else {
+                    robot.keyTap(data.key);
                 }
-            });
+            }
+        } catch (err) {
+            console.error("❌ Key trigger failure:", err.message);
+        }
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log(`🔌 Client disconnected: ${reason}`);
+        if (io.engine.clientsCount === 0) {
+            stopScreenStreaming();
         }
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`==================================================`);
-    console.log(`CONNECTWISE INTERACTIVE ACTIVE AT: http://localhost:${PORT}`);
-    console.log(`==================================================`);
+    console.log(`=======================================`);
+    console.log(`🔗 Remote Admin Panel Active on Port: ${PORT}`);
+    console.log(`=======================================`);
 });
