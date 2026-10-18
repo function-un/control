@@ -15,14 +15,14 @@ const io = new Server(server, {
 let isProcessingFrame = false;
 let captureIntervalId = null;
 
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// CROSS-PLATFORM SCREENSHOT ENGINE
 async function takeScreenFrame() {
     try {
-        // Leverages standard screenshot-desktop binary hooks across Linux/Windows automatically
         const imgBuffer = await screenshot({ format: 'jpeg' });
         return imgBuffer.toString('base64');
     } catch (err) {
@@ -46,7 +46,7 @@ function startScreenStreaming() {
         } finally {
             isProcessingFrame = false;
         }
-    }, 200); // 200ms standard refresh throttle
+    }, 200);
 }
 
 function stopScreenStreaming() {
