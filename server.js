@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const screenshot = require('screenshot-desktop');
-const robot = require('robotjs');
+const robot = require('@jitsi/robotjs');
 const path = require('path');
 
 const app = express();
