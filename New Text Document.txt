@@ -1,0 +1,6 @@
+chmod +x deploy.sh && ./deploy.sh   BASH
+
+.\deploy.ps1   pshe
+ 
+
+ Get-NetIPAddress -AddressFamily IPv4 | Select-Object IPAddress
