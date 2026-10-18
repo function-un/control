@@ -1,1 +1,6 @@
 node_modules/
+cloud-server/node_modules/
+local-agent/node_modules/
+cloud-server/public/frame.jpg
+local-agent/frame.jpg
+.env

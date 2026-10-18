@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Control Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #header {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #89b4fa;
+        }
+
+        #status {
+            font-size: 0.9rem;
+            color: #a6e3a1;
+        }
+
+        #viewer-container {
+            position: relative;
+            border: 2px solid #45475a;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            background-color: #11111b;
+            max-width: 90vw;
+            max-height: 80vh;
+            cursor: crosshair;
+        }
+
+        #remote-screen {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+    </style>
+    <!-- Load Socket.IO Client Library Provided by the Cloud Server -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="header">
+        <h1>💻 Remote Control Session Monitor</h1>
+        <div id="status">Connecting to cloud relay platform...</div>
+    </div>
+
+    <div id="viewer-container">
+        <!-- The live screen stream frame renders directly here -->
+        <img id="remote-screen" src="" alt="Waiting for target desktop stream transmission..." />
+    </div>
+
+    <script>
+        // 1. Establish connection to the cloud relay server as an administrator viewer
+        const socket = io({
+            query: { role: 'admin' }
+        });
+
+        const remoteScreen = document.getElementById('remote-screen');
+        const statusElement = document.getElementById('status');
+        const container = document.getElementById('viewer-container');
+
+        socket.on('connect', () => {
+            statusElement.innerText = "🟢 Connected to Cloud Relay. Awaiting host desktop video stream...";
+            statusElement.style.color = "#a6e3a1";
+        });
+
+        socket.on('disconnect', () => {
+            statusElement.innerText = "🔴 Lost link with cloud relay server dashboard.";
+            statusElement.style.color = "#f38ba8";
+        });
+
+        // 2. Receive screen buffer strings and render them frame-by-frame
+        socket.on('screen-data', (base64String) => {
+            remoteScreen.src = "data:image/jpeg;base64," + base64String;
+            statusElement.innerText = "🟢 Session active. Synchronizing device outputs...";
+        });
+
+        // 3. Track mouse down coordinates on the stream canvas and emit back down to host
+        container.addEventListener('click', (event) => {
+            // Calculate screen scaling bounding offsets 
+            const rect = remoteScreen.getBoundingClientRect();
+            
+            // Normalize click mapping coordinates between client display layout limits
+            const relativeX = event.clientX - rect.left;
+            const relativeY = event.clientY - rect.top;
+
+            // Map click bounds to percentages relative to original screenshot sizing structures
+            const clickData = {
+                x: Math.round((relativeX / rect.width) * remoteScreen.naturalWidth),
+                y: Math.round((relativeY / rect.height) * remoteScreen.naturalHeight)
+            };
+
+            // Avoid transmitting broken calculations if frame drops occur
+            if (!isNaN(clickData.x) && !isNaN(clickData.y)) {
+                socket.emit('remote-click', clickData);
+            }
+        });
+
+        // 4. Capture keyboard inputs from viewer browser tab window frame
+        window.addEventListener('keydown', (event) => {
+            // Prevent standard desktop shortcut overrides during session interactions
+            if (event.key === 'Tab' || event.key === 'Backspace') {
+                event.preventDefault();
+            }
+
+            const keyData = {
+                key: event.key.toLowerCase(),
+                modifier: null
+            };
+
+            // Check if standard helper modification commands are actively used
+            if (event.ctrlKey) keyData.modifier = 'control';
+            if (event.shiftKey) keyData.modifier = 'shift';
+            if (event.altKey) keyData.modifier = 'alt';
+
+            // Clean up name variations across alternative browsers
+            if (keyData.key === 'control') return;
+            if (keyData.key === 'shift') return;
+            if (keyData.key === 'alt') return;
+            if (keyData.key === 'enter') keyData.key = 'enter';
+            if (keyData.key === 'backspace') keyData.key = 'backspace';
+
+            socket.emit('remote-type', keyData);
+        });
+    </script>
+</body>
+</html>

@@ -1,18 +1,10 @@
 {
-  "name": "remotesc",
+  "name": "remotesc-monorepo",
   "version": "1.0.0",
-  "description": "Cross-platform remote administration tool dashboard setup",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.21.2",
-    "@jitsi/robotjs": "^0.6.14",
-    "screenshot-desktop": "^1.4.3",
-    "socket.io": "^4.8.1"
-  },
-  "engines": {
-    "node": ">=20.0.0 <23.0.0"
+    "install-all": "npm install --prefix cloud-server && npm install --prefix local-agent",
+    "start-server": "node cloud-server/server.js",
+    "start-agent": "node local-agent/agent.js"
   }
 }
