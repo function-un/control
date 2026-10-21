@@ -1,53 +1,118 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" } // Allows the local agent to connect from anywhere
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+const DB_PATH = path.join(__dirname, 'devices.json');
+let devicesRegistry = {};
+
+function loadDatabase() {
+    try {
+        if (fs.existsSync(DB_PATH)) {
+            devicesRegistry = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+            Object.keys(devicesRegistry).forEach(key => {
+                devicesRegistry[key].status = 'Offline'; // Initialize offline state on startup
+            });
+        }
+    } catch (err) {
+        console.error("❌ Registry DB loading error:", err.message);
+        devicesRegistry = {};
+    }
+}
+
+function saveDatabase() {
+    try {
+        fs.writeFileSync(DB_PATH, JSON.stringify(devicesRegistry, null, 2), 'utf8');
+    } catch (err) {
+        console.error("❌ Registry DB write error:", err.message);
+    }
+}
+
+loadDatabase();
 
 io.on('connection', (socket) => {
-    const role = socket.handshake.query.role;
-    console.log(`👤 New connection: ${socket.id} registered as [${role}]`);
+    const { role, deviceName, platformOS } = socket.handshake.query;
 
-    if (role === 'host') {
-        socket.join('hosts-room');
-        console.log("💻 Host agent is ready to stream.");
-    } else {
-        socket.join('admins-room');
-        console.log("👁️ Admin viewer opened the dashboard.");
+    if (role === 'host' && deviceName) {
+        console.log(`💻 Verified core cluster node registration: ${deviceName}`);
+        
+        devicesRegistry[deviceName] = {
+            id: socket.id,
+            status: 'Online',
+            os: platformOS || 'Windows',
+            firstSeen: devicesRegistry[deviceName]?.firstSeen || new Date().toLocaleString(),
+            lastSeen: new Date().toLocaleString()
+        };
+        
+        saveDatabase();
+        socket.join(`device-${deviceName}`);
+        io.to('admins-room').emit('registry-update', devicesRegistry);
     }
 
-    // Pipe incoming screen frames from the local agent directly to the admin dashboard
+    if (role === 'admin') {
+        socket.join('admins-room');
+        socket.emit('registry-update', devicesRegistry);
+
+        socket.on('join-device-stream', (targetDevice) => {
+            Array.from(socket.rooms).forEach(r => { if (r.startsWith('stream-')) socket.leave(r); });
+            if (devicesRegistry[targetDevice] && devicesRegistry[targetDevice].status === 'Online') {
+                socket.join(`stream-${targetDevice}`);
+                io.to(`device-${targetDevice}`).emit('start-capture-stream');
+            }
+        });
+
+        socket.on('leave-device-stream', (targetDevice) => {
+            socket.leave(`stream-${targetDevice}`);
+            // If no admins are actively looking at this screen room, tell the host to stop capturing
+            const viewers = io.sockets.adapter.rooms.get(`stream-${targetDevice}`);
+            if (!viewers || viewers.size === 0) {
+                io.to(`device-${targetDevice}`).emit('stop-capture-stream');
+            }
+        });
+
+        socket.on('force-frame-refresh', (targetDevice) => {
+            io.to(`device-${targetDevice}`).emit('trigger-single-frame');
+        });
+
+        socket.on('remote-macro', (payload) => {
+            io.to(`device-${payload.targetDevice}`).emit('execute-macro', payload.macro);
+        });
+
+        socket.on('remote-click', (payload) => {
+            io.to(`device-${payload.targetDevice}`).emit('execute-click', payload.data);
+        });
+
+        socket.on('remote-type', (payload) => {
+            io.to(`device-${payload.targetDevice}`).emit('execute-type', payload.data);
+        });
+    }
+
     socket.on('screen-data-stream', (base64Data) => {
-        socket.to('admins-room').emit('screen-data', base64Data);
-    });
-
-    // Forward remote mouse inputs down to the target computer
-    socket.on('remote-click', (data) => {
-        socket.to('hosts-room').emit('execute-click', data);
-    });
-
-    // Forward remote keyboard inputs down to the target computer
-    socket.on('remote-type', (data) => {
-        socket.to('hosts-room').emit('execute-type', data);
+        const hostName = Object.keys(devicesRegistry).find(k => devicesRegistry[k].id === socket.id);
+        if (hostName) {
+            io.to(`stream-${hostName}`).emit('screen-data', base64Data);
+        }
     });
 
     socket.on('disconnect', () => {
-        console.log(`🔌 Session dropped: ${socket.id}`);
+        const hostName = Object.keys(devicesRegistry).find(k => devicesRegistry[k].id === socket.id);
+        if (hostName) {
+            console.log(`🔌 Host left cluster grid: ${hostName}`);
+            devicesRegistry[hostName].status = 'Offline';
+            devicesRegistry[hostName].lastSeen = new Date().toLocaleString();
+            saveDatabase();
+            io.to('admins-room').emit('registry-update', devicesRegistry);
+        }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Cloud Relay Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => console.log(`🚀 Premium RMM server online on port ${PORT}`));
