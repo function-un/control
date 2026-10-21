@@ -3,11 +3,19 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+
+// PREMIUM UPGRADE: Force absolute CORS whitelisting for standalone binary agents
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'] // Allows seamless cross-protocol fallbacks
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -19,11 +27,10 @@ function loadDatabase() {
         if (fs.existsSync(DB_PATH)) {
             devicesRegistry = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
             Object.keys(devicesRegistry).forEach(key => {
-                devicesRegistry[key].status = 'Offline'; // Initialize offline state on startup
+                devicesRegistry[key].status = 'Offline';
             });
         }
     } catch (err) {
-        console.error("❌ Registry DB loading error:", err.message);
         devicesRegistry = {};
     }
 }
@@ -32,22 +39,25 @@ function saveDatabase() {
     try {
         fs.writeFileSync(DB_PATH, JSON.stringify(devicesRegistry, null, 2), 'utf8');
     } catch (err) {
-        console.error("❌ Registry DB write error:", err.message);
+        console.error(err.message);
     }
 }
 
 loadDatabase();
 
 io.on('connection', (socket) => {
-    const { role, deviceName, platformOS } = socket.handshake.query;
+    // Gracefully handle query parameters regardless of client architecture background status
+    const role = socket.handshake.query.role || 'host';
+    const deviceName = socket.handshake.query.deviceName || `NODE-${socket.id.slice(0, 5)}`;
+    const platformOS = socket.handshake.query.platformOS || 'Windows';
 
-    if (role === 'host' && deviceName) {
-        console.log(`💻 Verified core cluster node registration: ${deviceName}`);
+    if (role === 'host') {
+        console.log(`💻 Registering Monitored Node Endpoint Connection: ${deviceName}`);
         
         devicesRegistry[deviceName] = {
             id: socket.id,
             status: 'Online',
-            os: platformOS || 'Windows',
+            os: platformOS,
             firstSeen: devicesRegistry[deviceName]?.firstSeen || new Date().toLocaleString(),
             lastSeen: new Date().toLocaleString()
         };
@@ -71,7 +81,6 @@ io.on('connection', (socket) => {
 
         socket.on('leave-device-stream', (targetDevice) => {
             socket.leave(`stream-${targetDevice}`);
-            // If no admins are actively looking at this screen room, tell the host to stop capturing
             const viewers = io.sockets.adapter.rooms.get(`stream-${targetDevice}`);
             if (!viewers || viewers.size === 0) {
                 io.to(`device-${targetDevice}`).emit('stop-capture-stream');
@@ -105,7 +114,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const hostName = Object.keys(devicesRegistry).find(k => devicesRegistry[k].id === socket.id);
         if (hostName) {
-            console.log(`🔌 Host left cluster grid: ${hostName}`);
             devicesRegistry[hostName].status = 'Offline';
             devicesRegistry[hostName].lastSeen = new Date().toLocaleString();
             saveDatabase();
@@ -115,4 +123,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`🚀 Premium RMM server online on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Production Relay Core Operating on Port ${PORT}`));
