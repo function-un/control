@@ -3,145 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Remote Control Dashboard</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #1e1e2e;
-            color: #cdd6f4;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #header {
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            color: #89b4fa;
-        }
-
-        #status {
-            font-size: 0.9rem;
-            color: #a6e3a1;
-        }
-
-        #viewer-container {
-            position: relative;
-            border: 2px solid #45475a;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            background-color: #11111b;
-            max-width: 90vw;
-            max-height: 80vh;
-            cursor: crosshair;
-        }
-
-        #remote-screen {
-            display: block;
-            width: 100%;
-            height: auto;
-            max-height: 80vh;
-            object-fit: contain;
-        }
-    </style>
-    <!-- Load Socket.IO Client Library Provided by the Cloud Server -->
-    <script src="/socket.io/socket.io.js"></script>
+    <title>Enterprise Operator Console | RMM Suite</title>
+    <!-- Link to separated production styles -->
+    <link rel="stylesheet" href="/style.css">
+    <!-- Load Socket.IO Client Library provided natively by the cloud server -->
+    <script src="/socket.io/socket.io.js" defer></script>
+    <!-- Load modular client orchestration engine scripts -->
+    <script src="/index.js" defer></script>
 </head>
 <body>
 
-    <div id="header">
-        <h1>💻 Remote Control Session Monitor</h1>
-        <div id="status">Connecting to cloud relay platform...</div>
+    <!-- Pillar 1: Deep Core System Routing Icons -->
+    <div id="nav-pillar">
+        <div class="pillar-icon active">🛡️</div>
+        <div class="pillar-icon">📊</div>
+        <div class="pillar-icon">⚡</div>
     </div>
 
-    <div id="viewer-container">
-        <!-- The live screen stream frame renders directly here -->
-        <img id="remote-screen" src="" alt="Waiting for target desktop stream transmission..." />
+    <!-- Pillar 2: Systems Explorer Panel Grid -->
+    <div id="explorer-panel">
+        <div class="explorer-header">
+            <h2>Systems Architecture</h2>
+            <div class="tab-ribbon">
+                <button class="tab-btn active" id="btn-count-all">All Nodes (0)</button>
+                <button class="tab-btn">Monitored</button>
+            </div>
+        </div>
+        <div class="nodes-view-container" id="nodes-canvas-grid">
+            <div class="stage-placeholder" style="padding-top: 40px;">Syncing cluster connections...</div>
+        </div>
     </div>
 
-    <script>
-        // 1. Establish connection to the cloud relay server as an administrator viewer
-        const socket = io({
-            query: { role: 'admin' }
-        });
-
-        const remoteScreen = document.getElementById('remote-screen');
-        const statusElement = document.getElementById('status');
-        const container = document.getElementById('viewer-container');
-
-        socket.on('connect', () => {
-            statusElement.innerText = "🟢 Connected to Cloud Relay. Awaiting host desktop video stream...";
-            statusElement.style.color = "#a6e3a1";
-        });
-
-        socket.on('disconnect', () => {
-            statusElement.innerText = "🔴 Lost link with cloud relay server dashboard.";
-            statusElement.style.color = "#f38ba8";
-        });
-
-        // 2. Receive screen buffer strings and render them frame-by-frame
-        socket.on('screen-data', (base64String) => {
-            remoteScreen.src = "data:image/jpeg;base64," + base64String;
-            statusElement.innerText = "🟢 Session active. Synchronizing device outputs...";
-        });
-
-        // 3. Track mouse down coordinates on the stream canvas and emit back down to host
-        container.addEventListener('click', (event) => {
-            // Calculate screen scaling bounding offsets 
-            const rect = remoteScreen.getBoundingClientRect();
+    <!-- Pillar 3: High-Performance Main Workspace Console -->
+    <div id="workspace-deck">
+        <div id="deck-top-bar">
+            <div class="meta-title">
+                <span id="active-dot-status" class="status-dot status-online"></span>
+                <span id="active-machine-title">Terminal Console Session</span>
+            </div>
+            <div class="ribbon-actions">
+                <button class="btn-secondary" id="btn-sync-frame">⚡ Sync Frame</button>
+                <button class="btn-premium" id="btn-session-trigger">Initialize Access</button>
+            </div>
+        </div>
+        
+        <!-- Action Control Menu Helper Utility Bar -->
+        <div id="operator-ribbon">
+            <div class="ribbon-tool" id="tool-cad">⌨️ Send Ctrl+Alt+Del</div>
+            <div class="ribbon-tool" id="tool-run">🚀 Open Run Window</div>
+            <div class="ribbon-tool" id="tool-terminate" style="color:var(--status-off);">🛑 Terminate Link</div>
+        </div>
+        
+        <div id="viewport-stage">
+            <div id="center-placeholder-msg" class="stage-placeholder">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://w3.org"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <div>Select an active, authenticated endpoint profile from the systems explorer grid to establish a remote management session.</div>
+            </div>
             
-            // Normalize click mapping coordinates between client display layout limits
-            const relativeX = event.clientX - rect.left;
-            const relativeY = event.clientY - rect.top;
+            <div id="canvas-frame-shield">
+                <img id="stream-canvas-core" src="" alt="Active RMM Desktop Video Pipeline" />
+            </div>
+        </div>
+    </div>
 
-            // Map click bounds to percentages relative to original screenshot sizing structures
-            const clickData = {
-                x: Math.round((relativeX / rect.width) * remoteScreen.naturalWidth),
-                y: Math.round((relativeY / rect.height) * remoteScreen.naturalHeight)
-            };
-
-            // Avoid transmitting broken calculations if frame drops occur
-            if (!isNaN(clickData.x) && !isNaN(clickData.y)) {
-                socket.emit('remote-click', clickData);
-            }
-        });
-
-        // 4. Capture keyboard inputs from viewer browser tab window frame
-        window.addEventListener('keydown', (event) => {
-            // Prevent standard desktop shortcut overrides during session interactions
-            if (event.key === 'Tab' || event.key === 'Backspace') {
-                event.preventDefault();
-            }
-
-            const keyData = {
-                key: event.key.toLowerCase(),
-                modifier: null
-            };
-
-            // Check if standard helper modification commands are actively used
-            if (event.ctrlKey) keyData.modifier = 'control';
-            if (event.shiftKey) keyData.modifier = 'shift';
-            if (event.altKey) keyData.modifier = 'alt';
-
-            // Clean up name variations across alternative browsers
-            if (keyData.key === 'control') return;
-            if (keyData.key === 'shift') return;
-            if (keyData.key === 'alt') return;
-            if (keyData.key === 'enter') keyData.key = 'enter';
-            if (keyData.key === 'backspace') keyData.key = 'backspace';
-
-            socket.emit('remote-type', keyData);
-        });
-    </script>
 </body>
 </html>
