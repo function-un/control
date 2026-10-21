@@ -8,7 +8,7 @@ const platformType = os.type() === 'Windows_NT' ? 'Windows' : os.type();
 const nativeScreenSize = robot.getScreenSize();
 
 // Explicitly pointed to your new verified control production server
-const CLOUD_SERVER_URL = "https://onrender.com"; 
+const CLOUD_SERVER_URL = "https://control-6486.onrender.com"; 
 
 // Console logging suspended for absolute silent background deployment
 // console.log(`⚡ Initializing premium agent core engine on machine [${systemHostName}]`);
