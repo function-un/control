@@ -7,7 +7,7 @@ const systemHostName = os.hostname();
 const platformType = os.type() === 'Windows_NT' ? 'Windows' : os.type();
 const nativeScreenSize = robot.getScreenSize();
 
-const CLOUD_SERVER_URL = "https://onrender.com"; 
+const CLOUD_SERVER_URL = "https://control-6486.onrender.com"; 
 
 console.log(`⚡ Initializing premium agent core engine on machine [${systemHostName}]`);
 
