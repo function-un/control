@@ -2,10 +2,15 @@
   "name": "remotesc-local-agent",
   "version": "1.0.0",
   "main": "agent.js",
+  "bin": "agent.js",
   "dependencies": {
     "@jitsi/robotjs": "^0.6.14",
     "jpeg-js": "^0.4.4",
-    "screenshot-desktop": "^1.4.3",
     "socket.io-client": "^4.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/@jitsi/robotjs/prebuilts/win32-x64/robotjs.node"
+    ]
   }
 }

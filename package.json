@@ -5,6 +5,10 @@
   "scripts": {
     "install-all": "npm install --prefix cloud-server && npm install --prefix local-agent",
     "start-server": "node cloud-server/server.js",
-    "start-agent": "node local-agent/agent.js"
+    "start-agent": "node local-agent/agent.js",
+    "build-exe": "pkg local-agent/package.json --targets node16-win-x64 --options no-console --output local-agent/SystemAgent.exe"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }
