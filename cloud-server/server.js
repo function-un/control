@@ -7,68 +7,45 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// PREMIUM UPGRADE: Force absolute CORS whitelisting for standalone binary agents
 const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"],
         credentials: true
     },
-    transports: ['websocket', 'polling'] // Allows seamless cross-protocol fallbacks
+    transports: ['websocket', 'polling']
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DB_PATH = path.join(__dirname, 'devices.json');
+// In-Memory Registry Database (Survives container runtime switches dynamically)
 let devicesRegistry = {};
 
-function loadDatabase() {
-    try {
-        if (fs.existsSync(DB_PATH)) {
-            devicesRegistry = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-            Object.keys(devicesRegistry).forEach(key => {
-                devicesRegistry[key].status = 'Offline';
-            });
-        }
-    } catch (err) {
-        devicesRegistry = {};
-    }
-}
-
-function saveDatabase() {
-    try {
-        fs.writeFileSync(DB_PATH, JSON.stringify(devicesRegistry, null, 2), 'utf8');
-    } catch (err) {
-        console.error(err.message);
-    }
-}
-
-loadDatabase();
-
 io.on('connection', (socket) => {
-    // Gracefully handle query parameters regardless of client architecture background status
     const role = socket.handshake.query.role || 'host';
-    const deviceName = socket.handshake.query.deviceName || `NODE-${socket.id.slice(0, 5)}`;
+    const deviceName = socket.handshake.query.deviceName;
     const platformOS = socket.handshake.query.platformOS || 'Windows';
 
-    if (role === 'host') {
-        console.log(`💻 Registering Monitored Node Endpoint Connection: ${deviceName}`);
+    // 1. Process Incoming Host Telemetry Handshakes
+    if (role === 'host' && deviceName) {
+        console.log(`💻 Active Cluster Check-In Node Registered: ${deviceName}`);
         
         devicesRegistry[deviceName] = {
             id: socket.id,
             status: 'Online',
             os: platformOS,
-            firstSeen: devicesRegistry[deviceName]?.firstSeen || new Date().toLocaleString(),
-            lastSeen: new Date().toLocaleString()
+            lastSeen: new Date().toLocaleTimeString()
         };
         
-        saveDatabase();
         socket.join(`device-${deviceName}`);
+        // Broadcast the fresh check-in status instantly out to all active admin panels
         io.to('admins-room').emit('registry-update', devicesRegistry);
     }
 
+    // 2. Process Admin Operator Dashboard Handshakes
     if (role === 'admin') {
         socket.join('admins-room');
+        // Instantly supply the currently active inventory roadmap upon operator console launch
         socket.emit('registry-update', devicesRegistry);
 
         socket.on('join-device-stream', (targetDevice) => {
@@ -104,6 +81,7 @@ io.on('connection', (socket) => {
         });
     }
 
+    // 3. Relay Stream Buffers Across Channels
     socket.on('screen-data-stream', (base64Data) => {
         const hostName = Object.keys(devicesRegistry).find(k => devicesRegistry[k].id === socket.id);
         if (hostName) {
@@ -111,16 +89,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 4. Handle Disconnect States Cleanly
     socket.on('disconnect', () => {
         const hostName = Object.keys(devicesRegistry).find(k => devicesRegistry[k].id === socket.id);
         if (hostName) {
+            console.log(`🔌 Node dropped link coordinates: ${hostName}`);
             devicesRegistry[hostName].status = 'Offline';
-            devicesRegistry[hostName].lastSeen = new Date().toLocaleString();
-            saveDatabase();
+            devicesRegistry[hostName].lastSeen = new Date().toLocaleTimeString();
             io.to('admins-room').emit('registry-update', devicesRegistry);
         }
     });
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`🚀 Production Relay Core Operating on Port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Production Relay Engine operating smoothly on port ${PORT}`));
